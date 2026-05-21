@@ -13,13 +13,25 @@ import { userRouter } from './routes/user.routes'
 
 export const createApp = (io?: Server) => {
     const app = express()
-    const allowedOrigin = process.env.CLIENT_URL ?? 'http://localhost:3000'
+    const allowedOrigins = (process.env.CLIENT_URL ?? 'http://localhost:3000')
+        .split(',')
+        .map(origin => origin.trim())
+        .filter(Boolean)
 
     if (io) {
         app.set('io', io)
     }
 
-    app.use(cors({ origin: allowedOrigin, credentials: true }))
+    app.use(
+        cors({
+            origin(origin, callback) {
+                if (!origin) return callback(null, true)
+                if (allowedOrigins.includes(origin)) return callback(null, true)
+                return callback(new Error(`CORS blocked for origin: ${origin}`))
+            },
+            credentials: true
+        })
+    )
     app.use(cookieParser())
     app.use(express.json())
     app.use(passport.initialize())
