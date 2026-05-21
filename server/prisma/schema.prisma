@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ConversationType {
+  PRIVATE
+  GROUP
+}
+
+enum MemberRole {
+  ADMIN
+  MEMBER
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  EMOJI
+}
+
+enum PresenceStatus {
+  ONLINE
+  AWAY
+  OFFLINE
+}
+
+model User {
+  id           Int                  @id @default(autoincrement())
+  username     String               @unique
+  email        String               @unique
+  displayName  String?
+  passwordHash String?
+  avatar       String?
+  provider     String?
+  providerId   String?
+  presence     PresenceStatus       @default(OFFLINE)
+  lastSeenAt   DateTime?
+  createdAt    DateTime             @default(now())
+  conversations ConversationMember[]
+  createdConversations Conversation[] @relation("ConversationCreator")
+  sentMessages Message[]            @relation("SenderMessages")
+  resetTokens  PasswordResetToken[]
+  pinnedChats  PinnedConversation[]
+  favoriteMessages FavoriteMessage[]
+  reactions    MessageReaction[]
+  refreshTokens RefreshToken[]
+
+  @@unique([provider, providerId])
+}
+
+model Conversation {
+  id         Int                  @id @default(autoincrement())
+  type       ConversationType
+  name       String?
+  privateKey String?              @unique
+  createdBy  Int
+  createdByUser User              @relation("ConversationCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+  members    ConversationMember[]
+  messages   Message[]
+  pinnedBy   PinnedConversation[]
+}
+
+model ConversationMember {
+  conversationId Int
+  userId         Int
+  role           MemberRole       @default(MEMBER)
+  joinedAt       DateTime         @default(now())
+  lastReadAt     DateTime?
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+}
+
+model Message {
+  id              Int               @id @default(autoincrement())
+  conversationId  Int
+  senderId        Int
+  content         String
+  type            MessageType       @default(TEXT)
+  createdAt       DateTime          @default(now())
+  editedAt        DateTime?
+  deletedAt       DateTime?
+  replyToId       Int?
+  forwardedFromId Int?
+  conversation    Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender          User              @relation("SenderMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  replyTo         Message?          @relation("MessageReply", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies         Message[]         @relation("MessageReply")
+  forwardedFrom   Message?          @relation("MessageForward", fields: [forwardedFromId], references: [id], onDelete: SetNull)
+  forwardedCopies Message[]         @relation("MessageForward")
+  reactions       MessageReaction[]
+  favorites       FavoriteMessage[]
+}
+
+model MessageReaction {
+  messageId Int
+  userId    Int
+  emoji     String
+  createdAt DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId, emoji])
+}
+
+model FavoriteMessage {
+  messageId Int
+  userId    Int
+  createdAt DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId])
+}
+
+model PinnedConversation {
+  conversationId Int
+  userId         Int
+  createdAt      DateTime @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+}
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RefreshToken {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  tokenHash   String
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  replacedById Int?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+}

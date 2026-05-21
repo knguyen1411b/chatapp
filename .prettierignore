@@ -1,0 +1,11 @@
+node_modules
+.next
+out
+dist
+pnpm-lock.yaml
+coverage
+*.log
+*.tsbuildinfo
+*.d.ts
+*.map
+*.json

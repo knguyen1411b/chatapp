@@ -1,0 +1,68 @@
+services:
+    db:
+        image: postgres:16-alpine
+        container_name: chatapp-db
+        restart: unless-stopped
+        environment:
+            POSTGRES_DB: testdb
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: a112233
+        ports:
+            - '5432:5432'
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U postgres -d testdb']
+            interval: 5s
+            timeout: 3s
+            retries: 20
+
+    server:
+        build:
+            context: .
+            dockerfile: server/Dockerfile
+        container_name: chatapp-server
+        restart: unless-stopped
+        depends_on:
+            db:
+                condition: service_healthy
+        environment:
+            NODE_ENV: production
+            PORT: 5000
+            DATABASE_URL: postgresql://postgres:a112233@db:5432/testdb?schema=public
+            JWT_SECRET: your_super_secret_key
+            CLIENT_URL: http://localhost:3000
+            SERVER_URL: http://localhost:5000
+            GOOGLE_CLIENT_ID: ''
+            GOOGLE_CLIENT_SECRET: ''
+            GITHUB_CLIENT_ID: ''
+            GITHUB_CLIENT_SECRET: ''
+            CLOUDINARY_CLOUD_NAME: ''
+            CLOUDINARY_API_KEY: ''
+            CLOUDINARY_API_SECRET: ''
+            CLOUDINARY_FOLDER: chatapp
+            MAIL_USER: ''
+            MAIL_PASS: ''
+        ports:
+            - '5000:5000'
+
+    client:
+        build:
+            context: .
+            dockerfile: client/Dockerfile
+            args:
+                NEXT_PUBLIC_API_URL: http://localhost:5000/api
+                NEXT_PUBLIC_SOCKET_URL: http://localhost:5000
+                NEXT_PUBLIC_SERVER_URL: http://localhost:5000
+        container_name: chatapp-client
+        restart: unless-stopped
+        depends_on:
+            - server
+        environment:
+            NODE_ENV: production
+            PORT: 3000
+        ports:
+            - '3000:3000'
+
+volumes:
+    postgres_data:
