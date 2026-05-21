@@ -16,7 +16,7 @@ const appFont = Be_Vietnam_Pro({
 })
 
 export const metadata: Metadata = {
-    metadataBase: new URL('http://localhost:3000'),
+    metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
     title: {
         default: 'Realtime Chat App',
         template: '%s | Realtime Chat App'
@@ -28,8 +28,8 @@ export const metadata: Metadata = {
         type: 'website'
     },
     robots: {
-        index: false,
-        follow: false
+        index: true,
+        follow: true
     }
 }
 

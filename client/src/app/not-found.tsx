@@ -1,8 +1,16 @@
-'use client'
-
 import Link from 'next/link'
+import type { Metadata } from 'next'
 
 import { Button, Result } from 'antd'
+
+export const metadata: Metadata = {
+    title: '404 - Không tìm thấy trang',
+    description: 'Trang bạn yêu cầu không tồn tại.',
+    robots: {
+        index: false,
+        follow: false
+    }
+}
 
 export default function NotFound() {
     return (
