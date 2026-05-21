@@ -40,3 +40,7 @@ export const createApp = (io?: Server) => {
 
     return app
 }
+
+const app = createApp()
+
+export default app
