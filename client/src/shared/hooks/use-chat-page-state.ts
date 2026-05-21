@@ -86,14 +86,15 @@ export const useChatPageState = ({ queryClient }: Params) => {
     }, [])
 
     useEffect(() => {
+        if (!authBootstrapped) return
         if (!currentUser) {
-            router.push('/login')
+            router.replace('/login')
             return
         }
         if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission()
         }
-    }, [currentUser, router])
+    }, [authBootstrapped, currentUser, router])
 
     const upsertMessage = useCallback((incoming: Message) => {
         setMessages(prev => {
