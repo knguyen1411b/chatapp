@@ -25,6 +25,12 @@ export const createApp = (io?: Server) => {
     app.use(passport.initialize())
     app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')))
 
+    app.get('/', (_req, res) => {
+        res.json({
+            message: 'Chat API is running',
+            health: '/api/health'
+        })
+    })
     app.get('/api/health', (_req, res) => res.json({ message: 'OK' }))
     app.use('/api/auth', authRouter)
     app.use('/api/users', userRouter)
