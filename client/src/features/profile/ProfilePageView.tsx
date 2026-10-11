@@ -17,8 +17,8 @@ export default function ProfilePageView() {
     const router = useRouter()
     const { message } = App.useApp()
 
-    const [user, setUser] = useState<AuthUser | null>(null)
-    const [loading, setLoading] = useState(true)
+    const [user, setUser] = useState<AuthUser | null>(() => authStorage.getUser())
+    const [loading, setLoading] = useState(!authStorage.getUser())
     const [saving, setSaving] = useState(false)
     const [uploading, setUploading] = useState(false)
     const [deleting, setDeleting] = useState(false)
@@ -27,12 +27,12 @@ export default function ProfilePageView() {
 
     useEffect(() => {
         const run = async () => {
-            setLoading(true)
             try {
                 const profile = await chatApi.getMyProfile()
                 setUser(profile)
                 authStorage.setUser(profile)
             } catch (error) {
+                authStorage.clear()
                 router.replace('/login')
                 message.error(getErrorMessage(error, 'Không tải được thông tin cá nhân'))
             } finally {
@@ -107,6 +107,10 @@ export default function ProfilePageView() {
                     <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => router.push('/chat')}>
                         Quay lại chat
                     </Button>
+
+                    <Typography.Title level={1} className="text-xl! md:text-2xl! font-bold m-0!">
+                        Hồ sơ cá nhân
+                    </Typography.Title>
 
                     <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center">
                         <Avatar size={92} src={user?.avatar || undefined} className="bg-indigo-600">

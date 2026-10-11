@@ -17,15 +17,15 @@ export default function RegisterPageView() {
     const mutation = useMutation({
         mutationFn: (values: { username: string; email: string; password: string; displayName?: string }) =>
             chatApi.register(values),
-        onSuccess: user => {
-            authStorage.setUser(user)
+        onSuccess: data => {
+            authStorage.setSession(data)
             router.push('/chat')
         }
     })
 
     return (
         <AuthShell position="left">
-            <Title level={2} className="text-center text-white">
+            <Title level={1} className="text-center text-white text-2xl! md:text-3xl! font-bold">
                 Tạo tài khoản mới
             </Title>
             <Form layout="vertical" onFinish={v => mutation.mutate(v)} requiredMark={false}>

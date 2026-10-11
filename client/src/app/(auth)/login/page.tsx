@@ -4,10 +4,18 @@ import { LoginPageView } from '@/features/auth'
 
 export const metadata: Metadata = {
     title: 'Đăng nhập',
-    description: 'Đăng nhập vào tài khoản để sử dụng hệ thống chat realtime.',
+    description: 'Đăng nhập vào tài khoản ChatApp để bắt đầu trò chuyện realtime, kết nối bạn bè và làm việc nhóm.',
+    alternates: {
+        canonical: '/login'
+    },
+    openGraph: {
+        title: 'Đăng nhập | ChatApp',
+        description: 'Đăng nhập vào tài khoản ChatApp để bắt đầu trò chuyện realtime, kết nối bạn bè và làm việc nhóm.',
+        url: '/login'
+    },
     robots: {
-        index: false,
-        follow: false
+        index: true,
+        follow: true
     }
 }
 

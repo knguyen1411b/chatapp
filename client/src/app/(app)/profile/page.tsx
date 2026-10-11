@@ -3,8 +3,12 @@ import type { Metadata } from 'next'
 import { ProfilePageView } from '@/features/profile'
 
 export const metadata: Metadata = {
-    title: 'Profile',
-    description: 'Quản lý hồ sơ người dùng, avatar và thông tin cá nhân.'
+    title: 'Hồ sơ cá nhân',
+    description: 'Quản lý thông tin tài khoản, avatar và cài đặt cá nhân trên ChatApp.',
+    robots: {
+        index: false,
+        follow: false
+    }
 }
 
 export default function ProfilePage() {

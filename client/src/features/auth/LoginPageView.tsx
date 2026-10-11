@@ -46,26 +46,49 @@ export default function LoginPageView() {
     const router = useRouter()
 
     useEffect(() => {
-        chatApi
-            .getMe()
-            .then(user => {
-                authStorage.setUser(user)
-                router.replace('/chat')
-            })
-            .catch(() => {})
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search)
+            const token = params.get('token')
+            const refreshToken = params.get('refreshToken')
+            if (token) {
+                authStorage.setAccessToken(token)
+                if (refreshToken) authStorage.setRefreshToken(refreshToken)
+                window.history.replaceState({}, '', window.location.pathname)
+                chatApi
+                    .getMe()
+                    .then(user => {
+                        authStorage.setUser(user)
+                        router.replace('/chat')
+                    })
+                    .catch(() => {})
+                return
+            }
+        }
+
+        const cachedUser = authStorage.getUser()
+        const token = authStorage.getAccessToken()
+        if (cachedUser || token) {
+            chatApi
+                .getMe()
+                .then(user => {
+                    authStorage.setUser(user)
+                    router.replace('/chat')
+                })
+                .catch(() => {})
+        }
     }, [router])
 
     const loginMutation = useMutation({
         mutationFn: (values: { email: string; password: string }) => chatApi.login(values),
-        onSuccess: user => {
-            authStorage.setUser(user)
+        onSuccess: data => {
+            authStorage.setSession(data)
             router.push('/chat')
         }
     })
 
     return (
         <AuthShell>
-            <Title level={2} className="text-center text-white">
+            <Title level={1} className="text-center text-white text-2xl! md:text-3xl! font-bold">
                 Chào mừng trở lại!
             </Title>
             <Paragraph className="text-center text-slate-400">

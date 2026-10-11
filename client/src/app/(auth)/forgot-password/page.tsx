@@ -4,10 +4,18 @@ import { ForgotPasswordPageView } from '@/features/auth'
 
 export const metadata: Metadata = {
     title: 'Quên mật khẩu',
-    description: 'Gửi yêu cầu đặt lại mật khẩu qua email.',
+    description: 'Yêu cầu lấy lại mật khẩu tài khoản ChatApp qua email xác thực an toàn.',
+    alternates: {
+        canonical: '/forgot-password'
+    },
+    openGraph: {
+        title: 'Quên mật khẩu | ChatApp',
+        description: 'Yêu cầu lấy lại mật khẩu tài khoản ChatApp qua email xác thực an toàn.',
+        url: '/forgot-password'
+    },
     robots: {
-        index: false,
-        follow: false
+        index: true,
+        follow: true
     }
 }
 

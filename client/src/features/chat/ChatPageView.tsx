@@ -43,6 +43,7 @@ export default function ChatPageView() {
 
     return (
         <main id="main-content" className="mx-auto h-screen max-w-400 p-3 md:p-4">
+            <h1 className="sr-only">Phòng trò chuyện trực tuyến Realtime - ChatApp</h1>
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }}>
                 <ChatShell
                     showSidebarOnMobile={!state.mobileChatOpen}

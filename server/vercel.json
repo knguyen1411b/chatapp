@@ -2,7 +2,7 @@
   "version": 2,
   "functions": {
     "app.ts": {
-      "runtime": "@vercel/node@5.8.3"
+      "includeFiles": "prisma/**"
     }
   },
   "rewrites": [

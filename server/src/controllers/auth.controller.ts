@@ -1,7 +1,8 @@
 import { Request, Response } from 'express'
 import { z } from 'zod'
 
-import { prisma } from '../config/prisma'
+import { UnauthorizedError } from '../core/errors'
+import { asyncHandler } from '../middleware/error.middleware'
 import {
     loginWithEmail,
     refreshSession,
@@ -11,7 +12,12 @@ import {
     revokeSession,
     verifyPasswordResetToken
 } from '../services/auth.service'
+import { getUserProfile } from '../services/user.service'
 import { AuthRequest } from '../types/auth'
+import { clearAuthCookies, getCookieOptions, setAuthCookies } from '../utils/cookie'
+
+// Re-export cookie helpers for backward compatibility & testing
+export { clearAuthCookies, getCookieOptions, setAuthCookies }
 
 const registerSchema = z.object({
     username: z.string().min(2),
@@ -19,120 +25,105 @@ const registerSchema = z.object({
     password: z.string().min(6),
     displayName: z.string().optional()
 })
-const loginSchema = z.object({ email: z.string().email(), password: z.string().min(6) })
-const isProduction = process.env.NODE_ENV === 'production'
-const cookieOptions = {
-    httpOnly: true,
-    sameSite: (isProduction ? 'none' : 'lax') as 'none' | 'lax',
-    secure: isProduction,
-    path: '/'
-}
 
-const setAuthCookies = (res: Response, payload: { accessToken: string; refreshToken: string }) => {
-    res.cookie('chat_access', payload.accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 })
-    res.cookie('chat_refresh', payload.refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 })
-}
+const loginSchema = z.object({
+    email: z.string().email(),
+    password: z.string().min(6)
+})
 
-const clearAuthCookies = (res: Response) => {
-    res.clearCookie('chat_access', cookieOptions)
-    res.clearCookie('chat_refresh', cookieOptions)
-}
+export const register = asyncHandler(async (req: Request, res: Response) => {
+    const data = registerSchema.parse(req.body)
+    const auth = await registerWithEmail(data)
+    setAuthCookies(req, res, auth)
+    return res.status(201).json({
+        user: auth.user,
+        accessToken: auth.accessToken,
+        refreshToken: auth.refreshToken
+    })
+})
 
-const errorMessage = (e: unknown) => (e instanceof Error ? e.message : 'Request failed')
+export const login = asyncHandler(async (req: Request, res: Response) => {
+    const data = loginSchema.parse(req.body)
+    const auth = await loginWithEmail(data.email, data.password)
+    setAuthCookies(req, res, auth)
+    return res.json({
+        user: auth.user,
+        accessToken: auth.accessToken,
+        refreshToken: auth.refreshToken
+    })
+})
 
-export const register = async (req: Request, res: Response) => {
-    try {
-        const data = registerSchema.parse(req.body)
-        const auth = await registerWithEmail(data)
-        setAuthCookies(res, auth)
-        res.status(201).json({ user: auth.user })
-    } catch (e) {
-        res.status(400).json({ message: errorMessage(e) })
+export const refresh = asyncHandler(async (req: Request, res: Response) => {
+    const refreshToken =
+        (req.body?.refreshToken as string | undefined) ??
+        (req.cookies?.chat_refresh as string | undefined)
+
+    if (!refreshToken) {
+        clearAuthCookies(req, res)
+        throw new UnauthorizedError('Thiếu refresh token')
     }
-}
 
-export const login = async (req: Request, res: Response) => {
     try {
-        const data = loginSchema.parse(req.body)
-        const auth = await loginWithEmail(data.email, data.password)
-        setAuthCookies(res, auth)
-        res.json({ user: auth.user })
-    } catch (e) {
-        res.status(400).json({ message: errorMessage(e) })
-    }
-}
-
-export const refresh = async (req: Request, res: Response) => {
-    try {
-        const refreshToken = req.cookies?.chat_refresh as string | undefined
-        if (!refreshToken) return res.status(401).json({ message: 'Thiếu refresh token' })
         const auth = await refreshSession(refreshToken)
-        setAuthCookies(res, auth)
-        res.json({ user: auth.user })
-    } catch (e) {
-        clearAuthCookies(res)
-        res.status(401).json({ message: errorMessage(e) })
-    }
-}
-
-export const logout = async (req: Request, res: Response) => {
-    await revokeSession(req.cookies?.chat_refresh as string | undefined)
-    clearAuthCookies(res)
-    res.json({ message: 'Đăng xuất thành công' })
-}
-
-export const me = async (req: Request, res: Response) => {
-    try {
-        const auth = (req as AuthRequest).authUser
-        if (!auth) return res.status(401).json({ message: 'Unauthorized' })
-        const user = await prisma.user.findUnique({
-            where: { id: auth.userId },
-            select: {
-                id: true,
-                username: true,
-                email: true,
-                displayName: true,
-                avatar: true,
-                presence: true,
-                lastSeenAt: true
-            }
+        setAuthCookies(req, res, auth)
+        return res.json({
+            user: auth.user,
+            accessToken: auth.accessToken,
+            refreshToken: auth.refreshToken
         })
-        if (!user) return res.status(401).json({ message: 'Unauthorized' })
-        res.json(user)
-    } catch (e) {
-        res.status(401).json({ message: errorMessage(e) })
+    } catch (error) {
+        clearAuthCookies(req, res)
+        throw error
     }
-}
+})
 
-export const forgotPassword = async (req: Request, res: Response) => {
-    try {
-        res.json(await requestPasswordReset(z.string().email().parse(req.body.email)))
-    } catch (e) {
-        res.status(400).json({ message: errorMessage(e) })
-    }
-}
+export const logout = asyncHandler(async (req: Request, res: Response) => {
+    const refreshToken =
+        (req.body?.refreshToken as string | undefined) ??
+        (req.cookies?.chat_refresh as string | undefined)
 
-export const verifyResetPasswordController = async (req: Request, res: Response) => {
-    try {
-        const payload = z
-            .object({
-                token: z.string().min(1),
-                email: z.string().email()
-            })
-            .parse(req.query)
-        res.json(await verifyPasswordResetToken(payload.token, payload.email))
-    } catch (e) {
-        res.status(400).json({ message: errorMessage(e) })
-    }
-}
+    await revokeSession(refreshToken)
+    clearAuthCookies(req, res)
+    return res.json({ message: 'Đăng xuất thành công' })
+})
 
-export const resetPasswordController = async (req: Request, res: Response) => {
-    try {
-        const payload = z
-            .object({ token: z.string().min(1), email: z.string().email(), newPassword: z.string().min(6) })
-            .parse(req.body)
-        res.json(await resetPassword(payload.token, payload.email, payload.newPassword))
-    } catch (e) {
-        res.status(400).json({ message: errorMessage(e) })
+export const me = asyncHandler(async (req: Request, res: Response) => {
+    const auth = (req as AuthRequest).authUser
+    if (!auth) {
+        throw new UnauthorizedError('Unauthorized')
     }
-}
+
+    const user = await getUserProfile(auth.userId)
+    return res.json(user)
+})
+
+export const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
+    const email = z.string().email().parse(req.body.email)
+    const result = await requestPasswordReset(email)
+    return res.json(result)
+})
+
+export const verifyResetPasswordController = asyncHandler(async (req: Request, res: Response) => {
+    const payload = z
+        .object({
+            token: z.string().min(1),
+            email: z.string().email()
+        })
+        .parse(req.query)
+
+    const result = await verifyPasswordResetToken(payload.token, payload.email)
+    return res.json(result)
+})
+
+export const resetPasswordController = asyncHandler(async (req: Request, res: Response) => {
+    const payload = z
+        .object({
+            token: z.string().min(1),
+            email: z.string().email(),
+            newPassword: z.string().min(6)
+        })
+        .parse(req.body)
+
+    const result = await resetPassword(payload.token, payload.email, payload.newPassword)
+    return res.json(result)
+})

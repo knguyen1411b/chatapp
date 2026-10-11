@@ -17,7 +17,9 @@ export default function ForgotPasswordPageView() {
 
     return (
         <AuthShell>
-            <Typography.Title level={2}>Quên mật khẩu</Typography.Title>
+            <Typography.Title level={1} className="text-2xl! md:text-3xl! font-bold">
+                Quên mật khẩu
+            </Typography.Title>
             <Typography.Paragraph type="secondary" className="mt-0! mb-6!">
                 Nhập email của bạn để gửi yêu cầu đặt lại mật khẩu.
             </Typography.Paragraph>

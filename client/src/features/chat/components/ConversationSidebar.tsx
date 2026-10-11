@@ -80,6 +80,7 @@ export const ConversationSidebar = ({
                         </div>
                     </div>
                     <Dropdown
+                        trigger={['click']}
                         menu={{
                             items: [
                                 { key: 'profile', label: 'Trang cá nhân', onClick: onOpenProfile },

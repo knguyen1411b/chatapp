@@ -1,23 +1,31 @@
-import { Request, Response } from 'express'
+import { Response } from 'express'
 import { z } from 'zod'
 
+import { UnauthorizedError } from '../core/errors'
+import { asyncHandler } from '../middleware/error.middleware'
 import {
     createGroupConversation,
     createOrGetPrivateConversation,
+    listMyConversations,
+    markConversationAsRead,
+    togglePinConversation
+} from '../services/conversation.service'
+import {
     deleteMessage,
     editMessage,
     getConversationMessages,
     getMessageById,
-    listMyConversations,
-    markConversationAsRead,
     toggleFavoriteMessage,
-    togglePinConversation,
     toggleReaction
-} from '../services/chat.service'
+} from '../services/message.service'
 import { AuthRequest } from '../types/auth'
-import { getErrorMessage } from '../utils/http-error'
 
-const uid = (req: AuthRequest) => req.authUser!.userId
+const uid = (req: AuthRequest): number => {
+    const id = req.authUser?.userId
+    if (!id) throw new UnauthorizedError('Unauthorized')
+    return id
+}
+
 const emitMessageUpdated = (req: AuthRequest, conversationId: number, payload: unknown) => {
     const io = req.app.get('io')
     if (io?.to) {
@@ -25,124 +33,86 @@ const emitMessageUpdated = (req: AuthRequest, conversationId: number, payload: u
     }
 }
 
-export const createPrivateConversationController = async (req: AuthRequest, res: Response) => {
-    try {
-        const payload = z.object({ targetUserId: z.number().int().positive() }).parse(req.body)
-        return res.status(201).json(await createOrGetPrivateConversation(uid(req), payload.targetUserId))
-    } catch (e) {
-        const message = getErrorMessage(e, 'Không thể tạo cuộc trò chuyện')
-        if (e instanceof z.ZodError) return res.status(400).json({ message })
-        return res.status(400).json({ message })
-    }
-}
+export const createPrivateConversationController = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const payload = z.object({ targetUserId: z.number().int().positive() }).parse(req.body)
+    const result = await createOrGetPrivateConversation(uid(req), payload.targetUserId)
+    return res.status(201).json(result)
+})
 
-export const createGroupConversationController = async (req: AuthRequest, res: Response) => {
-    try {
-        const payload = z
-            .object({ name: z.string().trim().min(1), members: z.array(z.string().trim().min(1)) })
-            .parse(req.body)
-        return res.status(201).json(await createGroupConversation(uid(req), payload.name, payload.members))
-    } catch (e) {
-        const message = getErrorMessage(e, 'Không thể tạo nhóm')
-        if (e instanceof z.ZodError) return res.status(400).json({ message })
-        return res.status(400).json({ message })
-    }
-}
+export const createGroupConversationController = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const payload = z
+        .object({
+            name: z.string().trim().min(1),
+            members: z.array(z.string().trim().min(1))
+        })
+        .parse(req.body)
 
-export const getMyConversationsController = async (req: AuthRequest, res: Response) =>
-    res.json(await listMyConversations(uid(req)))
+    const result = await createGroupConversation(uid(req), payload.name, payload.members)
+    return res.status(201).json(result)
+})
 
-export const getConversationMessagesController = async (req: AuthRequest, res: Response) => {
-    try {
-        const conversationId = z.coerce.number().int().positive().parse(req.params.id)
-        const query = z
-            .object({
-                cursor: z.coerce.number().int().positive().optional(),
-                take: z.coerce.number().int().positive().max(100).optional()
-            })
-            .parse(req.query)
-        return res.json(await getConversationMessages(conversationId, uid(req), query))
-    } catch (e) {
-        const message = getErrorMessage(e, 'Không thể lấy tin nhắn')
-        if (e instanceof z.ZodError) return res.status(400).json({ message })
-        return res.status(403).json({ message })
-    }
-}
+export const getMyConversationsController = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await listMyConversations(uid(req))
+    return res.json(result)
+})
 
-export const markConversationAsReadController = async (req: AuthRequest, res: Response) => {
-    try {
-        const conversationId = z.coerce.number().int().positive().parse(req.params.id)
-        return res.json(await markConversationAsRead(conversationId, uid(req)))
-    } catch (e) {
-        const message = getErrorMessage(e, 'Không thể đánh dấu đã đọc')
-        if (e instanceof z.ZodError) return res.status(400).json({ message })
-        return res.status(403).json({ message })
-    }
-}
+export const getConversationMessagesController = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const conversationId = z.coerce.number().int().positive().parse(req.params.id)
+    const query = z
+        .object({
+            cursor: z.coerce.number().int().positive().optional(),
+            take: z.coerce.number().int().positive().max(100).optional()
+        })
+        .parse(req.query)
 
-export const togglePinConversationController = async (req: AuthRequest, res: Response) => {
-    try {
-        const conversationId = z.coerce.number().int().positive().parse(req.params.id)
-        return res.json(await togglePinConversation(conversationId, uid(req)))
-    } catch (e) {
-        const message = getErrorMessage(e, 'Không thể ghim cuộc trò chuyện')
-        if (e instanceof z.ZodError) return res.status(400).json({ message })
-        return res.status(403).json({ message })
-    }
-}
+    const result = await getConversationMessages(conversationId, uid(req), query)
+    return res.json(result)
+})
 
-export const toggleFavoriteMessageController = async (req: AuthRequest, res: Response) => {
-    try {
-        const messageId = z.coerce.number().int().positive().parse(req.params.id)
-        const result = await toggleFavoriteMessage(messageId, uid(req))
-        const updated = await getMessageById(messageId, uid(req))
-        emitMessageUpdated(req, updated.conversationId, updated)
-        return res.json(result)
-    } catch (e) {
-        const message = getErrorMessage(e, 'Không thể lưu tin nhắn')
-        if (e instanceof z.ZodError) return res.status(400).json({ message })
-        return res.status(403).json({ message })
-    }
-}
+export const markConversationAsReadController = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const conversationId = z.coerce.number().int().positive().parse(req.params.id)
+    const result = await markConversationAsRead(conversationId, uid(req))
+    return res.json(result)
+})
 
-export const toggleReactionController = async (req: AuthRequest, res: Response) => {
-    try {
-        const emoji = z.string().min(1).parse(req.body.emoji)
-        const messageId = z.coerce.number().int().positive().parse(req.params.id)
-        const result = await toggleReaction(messageId, uid(req), emoji)
-        const updated = await getMessageById(messageId, uid(req))
-        emitMessageUpdated(req, updated.conversationId, updated)
-        return res.json(result)
-    } catch (e) {
-        const message = getErrorMessage(e, 'Không thể thả cảm xúc')
-        if (e instanceof z.ZodError) return res.status(400).json({ message })
-        return res.status(403).json({ message })
-    }
-}
+export const togglePinConversationController = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const conversationId = z.coerce.number().int().positive().parse(req.params.id)
+    const result = await togglePinConversation(conversationId, uid(req))
+    return res.json(result)
+})
 
-export const editMessageController = async (req: AuthRequest, res: Response) => {
-    try {
-        const content = z.string().trim().min(1).parse(req.body.content)
-        const messageId = z.coerce.number().int().positive().parse(req.params.id)
-        const updated = await editMessage(messageId, uid(req), content)
-        emitMessageUpdated(req, updated.conversationId, updated)
-        return res.json(updated)
-    } catch (e) {
-        const message = getErrorMessage(e, 'Không thể sửa tin nhắn')
-        if (e instanceof z.ZodError) return res.status(400).json({ message })
-        return res.status(403).json({ message })
-    }
-}
+export const toggleFavoriteMessageController = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const messageId = z.coerce.number().int().positive().parse(req.params.id)
+    const userId = uid(req)
+    const result = await toggleFavoriteMessage(messageId, userId)
+    const updated = await getMessageById(messageId, userId)
+    emitMessageUpdated(req, updated.conversationId, updated)
+    return res.json(result)
+})
 
-export const deleteMessageController = async (req: AuthRequest, res: Response) => {
-    try {
-        const messageId = z.coerce.number().int().positive().parse(req.params.id)
-        const updated = await deleteMessage(messageId, uid(req))
-        emitMessageUpdated(req, updated.conversationId, updated)
-        return res.json(updated)
-    } catch (e) {
-        const message = getErrorMessage(e, 'Không thể xoá tin nhắn')
-        if (e instanceof z.ZodError) return res.status(400).json({ message })
-        return res.status(403).json({ message })
-    }
-}
+export const toggleReactionController = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const emoji = z.string().min(1).parse(req.body.emoji)
+    const messageId = z.coerce.number().int().positive().parse(req.params.id)
+    const userId = uid(req)
+    const result = await toggleReaction(messageId, userId, emoji)
+    const updated = await getMessageById(messageId, userId)
+    emitMessageUpdated(req, updated.conversationId, updated)
+    return res.json(result)
+})
+
+export const editMessageController = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const content = z.string().trim().min(1).parse(req.body.content)
+    const messageId = z.coerce.number().int().positive().parse(req.params.id)
+    const userId = uid(req)
+    const updated = await editMessage(messageId, userId, content)
+    emitMessageUpdated(req, updated.conversationId, updated)
+    return res.json(updated)
+})
+
+export const deleteMessageController = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const messageId = z.coerce.number().int().positive().parse(req.params.id)
+    const userId = uid(req)
+    const updated = await deleteMessage(messageId, userId)
+    emitMessageUpdated(req, updated.conversationId, updated)
+    return res.json(updated)
+})

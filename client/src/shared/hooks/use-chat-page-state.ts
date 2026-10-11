@@ -21,7 +21,7 @@ export const useChatPageState = ({ queryClient }: Params) => {
     const router = useRouter()
     const { message } = App.useApp()
 
-    const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
+    const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => authStorage.getUser())
     const [authBootstrapped, setAuthBootstrapped] = useState(false)
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
     const [messages, setMessages] = useState<Message[]>([])
@@ -60,17 +60,26 @@ export const useChatPageState = ({ queryClient }: Params) => {
     }, [])
 
     useEffect(() => {
+        let isMounted = true
         chatApi
             .getMe()
             .then(user => {
+                if (!isMounted) return
                 setCurrentUser(user)
                 authStorage.setUser(user)
             })
             .catch(() => {
+                if (!isMounted) return
                 setCurrentUser(null)
                 authStorage.clear()
             })
-            .finally(() => setAuthBootstrapped(true))
+            .finally(() => {
+                if (isMounted) setAuthBootstrapped(true)
+            })
+
+        return () => {
+            isMounted = false
+        }
     }, [])
 
     useEffect(() => {
@@ -427,9 +436,11 @@ export const useChatPageState = ({ queryClient }: Params) => {
         createGroupMutation.mutate({ name: groupName.trim(), members: groupMembers })
     }
 
-    const logout = () => {
+    const logout = async () => {
         authStorage.clear()
-        chatApi.logout().catch(() => {})
+        try {
+            await chatApi.logout()
+        } catch {}
         setCurrentUser(null)
         resetChatState()
         queryClient.removeQueries({ queryKey: ['conversations'] })

@@ -1,13 +1,26 @@
 import { api } from './api'
+import { authStorage } from './auth-storage'
 import { AuthUser, Conversation, Message, PaginatedMessages } from './types'
+
+export type AuthResponse = {
+    user: AuthUser
+    accessToken?: string
+    refreshToken?: string
+}
 
 export const chatApi = {
     register: async (payload: { username: string; email: string; password: string; displayName?: string }) =>
-        (await api.post<{ user: AuthUser }>('/auth/register', payload)).data.user,
+        (await api.post<AuthResponse>('/auth/register', payload)).data,
     login: async (payload: { email: string; password: string }) =>
-        (await api.post<{ user: AuthUser }>('/auth/login', payload)).data.user,
-    refreshSession: async () => (await api.post<{ user: AuthUser }>('/auth/refresh')).data.user,
-    logout: async () => api.post('/auth/logout'),
+        (await api.post<AuthResponse>('/auth/login', payload)).data,
+    refreshSession: async () => {
+        const refreshToken = authStorage.getRefreshToken()
+        return (await api.post<AuthResponse>('/auth/refresh', { refreshToken })).data
+    },
+    logout: async () => {
+        const refreshToken = authStorage.getRefreshToken()
+        return api.post('/auth/logout', { refreshToken })
+    },
     getMe: async () => (await api.get<AuthUser>('/auth/me')).data,
     forgotPassword: async (email: string) =>
         (await api.post<{ message: string; resetToken?: string }>('/auth/forgot-password', { email })).data,

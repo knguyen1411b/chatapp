@@ -3,11 +3,21 @@ import type { Metadata } from 'next'
 import { RegisterPageView } from '@/features/auth'
 
 export const metadata: Metadata = {
-    title: 'Đăng ký',
-    description: 'Tạo tài khoản mới để bắt đầu trò chuyện realtime.',
+    title: 'Đăng ký tài khoản',
+    description:
+        'Tạo tài khoản ChatApp miễn phí để bắt đầu nhắn tin thời gian thực, trò chuyện nhóm và gửi tập tin bảo mật.',
+    alternates: {
+        canonical: '/register'
+    },
+    openGraph: {
+        title: 'Đăng ký tài khoản | ChatApp',
+        description:
+            'Tạo tài khoản ChatApp miễn phí để bắt đầu nhắn tin thời gian thực, trò chuyện nhóm và gửi tập tin bảo mật.',
+        url: '/register'
+    },
     robots: {
-        index: false,
-        follow: false
+        index: true,
+        follow: true
     }
 }
 

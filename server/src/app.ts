@@ -5,6 +5,7 @@ import path from 'path'
 import { Server } from 'socket.io'
 
 import passport from './config/passport'
+import { errorHandler, notFoundHandler } from './middleware/error.middleware'
 import { authRouter } from './routes/auth.routes'
 import { conversationRouter } from './routes/conversation.routes'
 import { messageRouter } from './routes/message.routes'
@@ -13,9 +14,11 @@ import { userRouter } from './routes/user.routes'
 
 export const createApp = (io?: Server) => {
     const app = express()
+    app.set('trust proxy', 1)
+
     const allowedOrigins = (process.env.CLIENT_URL ?? 'http://localhost:3000')
         .split(',')
-        .map(origin => origin.trim())
+        .map(origin => origin.trim().replace(/\/+$/, ''))
         .filter(Boolean)
 
     if (io) {
@@ -26,8 +29,15 @@ export const createApp = (io?: Server) => {
         cors({
             origin(origin, callback) {
                 if (!origin) return callback(null, true)
-                if (allowedOrigins.includes(origin)) return callback(null, true)
-                return callback(new Error(`CORS blocked for origin: ${origin}`))
+                const normalized = origin.replace(/\/+$/, '')
+                if (
+                    allowedOrigins.includes(normalized) ||
+                    allowedOrigins.includes('*') ||
+                    (allowedOrigins.some(o => o.includes('.vercel.app')) && normalized.endsWith('.vercel.app'))
+                ) {
+                    return callback(null, true)
+                }
+                return callback(null, false)
             },
             credentials: true
         })
@@ -44,11 +54,17 @@ export const createApp = (io?: Server) => {
         })
     })
     app.get('/api/health', (_req, res) => res.json({ message: 'OK' }))
+
+    // API Routes
     app.use('/api/auth', authRouter)
     app.use('/api/users', userRouter)
     app.use('/api/conversations', conversationRouter)
     app.use('/api/messages', messageRouter)
     app.use('/api/upload', uploadRouter)
+
+    // Global Error Handling Middleware
+    app.use(notFoundHandler)
+    app.use(errorHandler)
 
     return app
 }

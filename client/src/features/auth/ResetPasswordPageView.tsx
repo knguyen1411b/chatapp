@@ -62,7 +62,7 @@ export default function ResetPasswordPageView() {
 
             {!missingQuery && verifyQuery.isSuccess ? (
                 <>
-                    <Typography.Title level={2}>Đặt lại mật khẩu</Typography.Title>
+                    <Typography.Title level={1} className="text-2xl! md:text-3xl! font-bold">Đặt lại mật khẩu</Typography.Title>
                     <Typography.Paragraph className="text-slate-400">
                         Vui lòng nhập mật khẩu mới cho tài khoản của bạn.
                     </Typography.Paragraph>

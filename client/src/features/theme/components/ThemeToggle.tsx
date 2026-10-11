@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useSyncExternalStore } from 'react'
 
 import { DesktopOutlined, MoonOutlined, SunOutlined } from '@ant-design/icons'
 import { Button, Dropdown } from 'antd'
@@ -8,12 +8,14 @@ import { useTheme } from 'next-themes'
 
 export type ThemeMode = 'light' | 'dark' | 'system'
 
-export const ThemeToggle = () => {
-    const [mounted, setMounted] = useState(false)
+const emptySubscribe = () => () => {}
 
-    useEffect(() => {
-        setMounted(true)
-    }, [])
+export const ThemeToggle = () => {
+    const mounted = useSyncExternalStore(
+        emptySubscribe,
+        () => true,
+        () => false
+    )
 
     const { theme, setTheme, resolvedTheme } = useTheme()
 

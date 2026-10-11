@@ -5,6 +5,7 @@ import { useState } from 'react'
 
 import { Socket, io } from 'socket.io-client'
 
+import { authStorage } from '@/shared/lib/auth-storage'
 import { Message } from '@/shared/lib/types'
 
 type TypingPayload = {
@@ -47,7 +48,12 @@ export const useChatSocket = ({
         const endpoint = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_SERVER_URL || ''
         if (!endpoint) return
 
-        const socket = io(endpoint, { withCredentials: true })
+        const token = authStorage.getAccessToken()
+        const socket = io(endpoint, {
+            withCredentials: true,
+            auth: { token: token || undefined },
+            transports: ['websocket', 'polling']
+        })
         socketRef.current = socket
 
         socket.on('message:new', onMessageNew)

@@ -10,6 +10,7 @@ import {
     refresh,
     register,
     resetPasswordController,
+    setAuthCookies,
     verifyResetPasswordController
 } from '../controllers/auth.controller'
 import { authMiddleware } from '../middleware/auth.middleware'
@@ -36,22 +37,11 @@ authRouter.get(
             refreshToken: string
             user: { id: number; email: string; username: string; displayName?: string | null; avatar?: string | null }
         }
-        const secure = process.env.NODE_ENV === 'production'
-        res.cookie('chat_access', auth.accessToken, {
-            httpOnly: true,
-            sameSite: 'lax',
-            secure,
-            path: '/',
-            maxAge: 15 * 60 * 1000
-        })
-        res.cookie('chat_refresh', auth.refreshToken, {
-            httpOnly: true,
-            sameSite: 'lax',
-            secure,
-            path: '/',
-            maxAge: 7 * 24 * 60 * 60 * 1000
-        })
-        res.redirect(`${env.clientUrl}/chat`)
+        setAuthCookies(req, res, auth)
+        const targetUrl = new URL(`${env.clientUrl}/login`)
+        targetUrl.searchParams.set('token', auth.accessToken)
+        targetUrl.searchParams.set('refreshToken', auth.refreshToken)
+        res.redirect(targetUrl.toString())
     }
 )
 
@@ -64,21 +54,10 @@ authRouter.get(
             refreshToken: string
             user: { id: number; email: string; username: string; displayName?: string | null; avatar?: string | null }
         }
-        const secure = process.env.NODE_ENV === 'production'
-        res.cookie('chat_access', auth.accessToken, {
-            httpOnly: true,
-            sameSite: 'lax',
-            secure,
-            path: '/',
-            maxAge: 15 * 60 * 1000
-        })
-        res.cookie('chat_refresh', auth.refreshToken, {
-            httpOnly: true,
-            sameSite: 'lax',
-            secure,
-            path: '/',
-            maxAge: 7 * 24 * 60 * 60 * 1000
-        })
-        res.redirect(`${env.clientUrl}/chat`)
+        setAuthCookies(req, res, auth)
+        const targetUrl = new URL(`${env.clientUrl}/login`)
+        targetUrl.searchParams.set('token', auth.accessToken)
+        targetUrl.searchParams.set('refreshToken', auth.refreshToken)
+        res.redirect(targetUrl.toString())
     }
 )
